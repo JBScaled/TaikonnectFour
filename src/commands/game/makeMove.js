@@ -14,13 +14,13 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("make-move")
     .setDescription("Make a move in an existing game of Connect Four")
-    .addStringOption(option =>
+    .addStringOption((option) =>
       option
         .setName("gameid")
         .setDescription("The ID of the game you wish to make a move in.")
         .setRequired(true)
     )
-    .addIntegerOption(option =>
+    .addIntegerOption((option) =>
       option
         .setName("column")
         .setDescription("The column number where you want to drop your disc.")
@@ -30,7 +30,7 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-    await interaction.deferReply({ ephemeral: true }); // Acknowledge the interaction
+    await interaction.deferReply(); // Acknowledge the interaction
 
     const userId = interaction.user.id;
     let userProfile = await User.findOne({ userId });
@@ -64,34 +64,50 @@ module.exports = {
         .send(options);
 
       if (transaction.transactionHash) {
-        // Fetch the new game board status
-        const gameBoard = await contract.methods.getGameBoard(gameId).call();
-
-        const rows = gameBoard.length;
-        const cols = gameBoard[0].length;
-        const rotatedGameBoard = [];
-      
-        for (let col = cols - 1; col >= 0; col--) {
-          const newRow = [];
-          for (let row = 0; row < rows; row++) {
-            newRow.push(gameBoard[row][col]);
-          }
-          rotatedGameBoard.push(newRow);
-        }
-  
-        // Format the game board for display
-        let newGameBoard = `Game Board Status for Game ID ${gameId}:\n`;
-        for (let i = 0; i < rotatedGameBoard.length; i++) {
-            newGameBoard += `${rotatedGameBoard[i].join(" ")}\n`;
-        }
-  
-        await interaction.editReply({
-          content: `Move successfully made!\nTransaction Hash: ${transaction.transactionHash}\n\n${newGameBoard}`,
-        });
-
         console.log("Transaction hash:", transaction.transactionHash);
         console.log("Move made successfully!");
-        console.log("New Game Board Status:", newGameBoard);
+
+        try {
+          // Fetch the new game board status
+          const gameBoard = await contract.methods.getGameBoard(gameId).call();
+
+          const rows = gameBoard.length;
+          const cols = gameBoard[0].length;
+          const rotatedGameBoard = [];
+
+          for (let col = cols - 1; col >= 0; col--) {
+            const newRow = [];
+            for (let row = 0; row < rows; row++) {
+              newRow.push(gameBoard[row][col]);
+            }
+            rotatedGameBoard.push(newRow);
+          }
+
+          // Process the game board and replace cell values with emojis
+          const colouredGameBoard = rotatedGameBoard
+            .map((row) => {
+              return row
+                .map((cell) => {
+                  if (cell == 1) return "🔵";
+                  if (cell == 2) return "🔴";
+                  return "⚫";
+                })
+                .join(" "); // Join cells with space for better display
+            })
+            .join("\n"); // Join rows with new line for better display
+
+          // Format the game board for display
+          let newGameBoard = `Game Board Status for Game ID ${gameId}:\n${colouredGameBoard}`;
+
+          await interaction.editReply({
+            content: `Move successfully made!\nTransaction Hash: ${transaction.transactionHash}\n\n${newGameBoard}`,
+          });
+          console.log("New Game Board Status:", newGameBoard);
+        } catch {
+          await interaction.editReply({
+            content: `Move successfully made!\nTransaction Hash: ${transaction.transactionHash}\n\n The winner was ${userProfile.username}!!!!`,
+          });
+        }
       }
     } catch (error) {
       console.error("Error making move:", error);

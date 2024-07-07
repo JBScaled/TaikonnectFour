@@ -22,7 +22,7 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-    await interaction.deferReply({ ephemeral: true }); // Acknowledge the interaction
+    await interaction.deferReply(); // Acknowledge the interaction
 
     const userId = interaction.user.id;
     let userProfile = await User.findOne({ userId });
